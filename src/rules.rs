@@ -1,16 +1,16 @@
 use std::{
     collections::{HashMap, HashSet},
-    rc::Rc,
     str::FromStr,
+    sync::Arc,
 };
 
 use regex::Regex;
 
 use crate::errors::{CellsError, Result};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct GameRules {
-    inner: Rc<InnerGameRules>, // Maybe switch to Arc for thread safety
+    inner: Arc<InnerGameRules>, // Maybe switch to Arc for thread safety
 }
 
 #[derive(Debug, PartialEq)]
@@ -59,14 +59,14 @@ impl FromStr for GameRules {
                 survive.insert(d);
             });
 
-        let inner = Rc::new(InnerGameRules { born, survive });
+        let inner = Arc::new(InnerGameRules { born, survive });
         Ok(GameRules { inner })
     }
 }
 
 #[derive(Debug)]
 pub struct RulePresets {
-    presets: HashMap<PresetName, Rc<InnerGameRules>>,
+    presets: HashMap<PresetName, Arc<InnerGameRules>>,
 }
 
 impl RulePresets {
@@ -94,10 +94,10 @@ impl RulePresets {
                 survive.insert(2);
                 survive.insert(3);
 
-                Rc::new(InnerGameRules { born, survive })
+                Arc::new(InnerGameRules { born, survive })
             });
         GameRules {
-            inner: Rc::clone(preset),
+            inner: Arc::clone(preset),
         }
     }
 }

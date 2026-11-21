@@ -13,22 +13,43 @@ pub mod tui;
 /// Application updater.
 pub mod update;
 
+use std::path::PathBuf;
+
+use cells::GameRules;
+use clap::Parser;
 use color_eyre::Result;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
+use ratatui::style::Color;
 
 use crate::app::App;
 use crate::event::{Event, EventHandler};
 use crate::tui::Tui;
 use update::update;
 
-// TODO: add support for CLI args
-// Help and automaton-path
+#[derive(Parser, Debug)]
+#[command(version, about = "A simple life-like cellular automaton simulator")]
+struct Cli {
+    /// Simulation rules - a string in Golly/RLE format, defaults to Conway's Game of Life 'B2/S23'
+    #[arg(short, long)]
+    rules: Option<GameRules>,
+
+    /// Path to the cells' initial state file. If absent a default example preset will be used
+    #[arg(short, long)]
+    cells_file: Option<PathBuf>,
+
+    /// A color which will be used for drawing alive cells
+    #[arg(long, default_value_t=Color::Yellow)]
+    cells_color: Color,
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
+
+    let cli = Cli::parse();
+
     // Create an application.
-    // let mut app = App::default();
-    let mut app = App::from_file("figure-eight.cells")?;
+    let mut app = App::new(cli.rules, cli.cells_file, cli.cells_color)?;
 
     // Initialize the terminal user interface.
     let backend = CrosstermBackend::new(std::io::stderr());

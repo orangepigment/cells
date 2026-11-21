@@ -50,7 +50,12 @@ impl Automaton {
         })
     }
 
-    pub fn preset(cells: Vec<Cell>, height: usize, width: usize, rules: GameRules) -> Result<Self> {
+    pub fn preset(
+        cells: Vec<Cell>,
+        height: usize,
+        width: usize,
+        rules: Option<GameRules>,
+    ) -> Result<Self> {
         if height < 1 {
             return Err(CellsError::AutomatonInit(
                 errors::AutomatonInitError::Height { height },
@@ -73,6 +78,8 @@ impl Automaton {
             ));
         }
 
+        let rules = rules.unwrap_or(RulePresets::new().game_of_life());
+
         Ok(Automaton {
             cells,
             height,
@@ -82,7 +89,7 @@ impl Automaton {
         })
     }
 
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Automaton> {
+    pub fn from_file<P: AsRef<Path>>(path: P, rules: Option<GameRules>) -> Result<Automaton> {
         if !path
             .as_ref()
             .try_exists()
@@ -106,9 +113,7 @@ impl Automaton {
 
         // TODO: parse header - will it contain only rules but also expected width and height?
         // TODO: Make header optional? Good idea.
-        // let rules = todo!("read from header lines");
-        // Hardcoded rules for now
-        let rules = RulePresets::new().game_of_life();
+        let rules = rules.unwrap_or(RulePresets::new().game_of_life());
 
         // Manual handling of the first cells' data line
         if let Some(first_line) = lines
@@ -141,6 +146,7 @@ impl Automaton {
                 height += 1;
             }
 
+            eprintln!("height={height},width={width}");
             Ok(Automaton {
                 cells,
                 height,
@@ -235,7 +241,7 @@ impl Automaton {
 
     // TODO: write tests
     fn get_neighbors(&self, cell_idx: usize) -> Vec<usize> {
-        let row = cell_idx / self.height;
+        let row = cell_idx / self.width;
         let col = cell_idx % self.width;
 
         let mut neighbors_indices: Vec<usize> = Vec::new();
@@ -277,6 +283,8 @@ impl Automaton {
 mod tests {
     use super::*;
 
+    // TODO: write tests for preset and from_file constructor
+    //   Add error test cases for all constructors
     #[test]
     fn create_empty_automaton() {
         let mut presets = RulePresets::default();
