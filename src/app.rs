@@ -21,7 +21,7 @@ impl App {
         let automaton = match cells_file {
             Some(cf) => Automaton::from_file(cf, rules)
                 .wrap_err("Failed to load automaton definition from {path}"),
-            None => Automaton::preset(App::default_cells(), 10, 10, rules)
+            None => Automaton::new(App::figure_eight(), 10, 10, rules)
                 .wrap_err("Failed to load automaton preset"),
         }?;
 
@@ -33,8 +33,10 @@ impl App {
         })
     }
 
-    fn default_cells() -> Vec<Cell> {
+    /// Default configuration [Figure Eight](https://conwaylife.com/wiki/Figure_eight)
+    fn figure_eight() -> Vec<Cell> {
         vec![
+            // Row 1
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,
@@ -45,6 +47,7 @@ impl App {
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,
+            // Row 2
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,
@@ -55,16 +58,7 @@ impl App {
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,
-            Cell::Dead,
-            Cell::Dead,
-            Cell::Dead,
-            Cell::Dead,
-            Cell::Dead,
-            Cell::Alive,
-            Cell::Alive,
-            Cell::Alive,
-            Cell::Dead,
-            Cell::Dead,
+            // Row 3
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,
@@ -75,6 +69,7 @@ impl App {
             Cell::Alive,
             Cell::Dead,
             Cell::Dead,
+            // Row 4
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,
@@ -85,13 +80,7 @@ impl App {
             Cell::Alive,
             Cell::Dead,
             Cell::Dead,
-            Cell::Dead,
-            Cell::Dead,
-            Cell::Alive,
-            Cell::Alive,
-            Cell::Alive,
-            Cell::Dead,
-            Cell::Dead,
+            // Row 5
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,
@@ -102,9 +91,7 @@ impl App {
             Cell::Alive,
             Cell::Dead,
             Cell::Dead,
-            Cell::Dead,
-            Cell::Dead,
-            Cell::Dead,
+            // Row 6
             Cell::Dead,
             Cell::Dead,
             Cell::Alive,
@@ -115,6 +102,29 @@ impl App {
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,
+            // Row 7
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Alive,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 8
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Alive,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 9
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,
@@ -125,6 +135,7 @@ impl App {
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,
+            // Row 10
             Cell::Dead,
             Cell::Dead,
             Cell::Dead,

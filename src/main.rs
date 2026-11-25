@@ -30,7 +30,7 @@ use update::update;
 #[derive(Parser, Debug)]
 #[command(version, about = "A simple life-like cellular automaton simulator")]
 struct Cli {
-    /// Simulation rules - a string in Golly/RLE format, defaults to Conway's Game of Life 'B2/S23'
+    /// Simulation rules - a string in Golly/RLE format, defaults to Conway's Game of Life 'B3/S23'
     #[arg(short, long)]
     rules: Option<GameRules>,
 

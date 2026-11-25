@@ -11,4 +11,6 @@ ratatui = "0.30.2"
 regex = "1.13.1"
 
 [dev-dependencies]
+assert_fs = "1.1.4"
 insta = "1.49.0"
+proptest = "1.12.0"
