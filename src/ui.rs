@@ -2,7 +2,7 @@ use cells::Cell;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Flex, Layout},
-    style::Stylize,
+    style::{Style, Stylize},
     widgets::{Block, BorderType, Borders, Paragraph},
 };
 
@@ -65,7 +65,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let automaton_cells = app.cells();
     for (i, grid_cell) in grid_cells.enumerate() {
         if let Cell::Alive = automaton_cells[i] {
-            frame.render_widget(Block::new().on_yellow(), grid_cell);
+            frame.render_widget(
+                Block::new().style(Style::new().bg(app.cells_color())),
+                grid_cell,
+            );
         }
     }
 

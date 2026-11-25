@@ -26,10 +26,9 @@ pub struct Automaton {
     generation: u64,
 }
 
-// Move into inner module and pub export?
 impl Automaton {
     // TODO: add a setter for cell via col+row/idx?
-    pub fn empty(height: usize, width: usize, rules: GameRules) -> Result<Self> {
+    pub fn empty(height: usize, width: usize, rules: Option<GameRules>) -> Result<Self> {
         if height < 1 {
             return Err(CellsError::AutomatonInit(
                 errors::AutomatonInitError::Height { height },
@@ -45,12 +44,17 @@ impl Automaton {
             cells: vec![Cell::Dead; height * width],
             height,
             width,
-            rules,
+            rules: rules.unwrap_or(RulePresets::new().game_of_life()),
             generation: 1,
         })
     }
 
-    pub fn preset(cells: Vec<Cell>, height: usize, width: usize, rules: GameRules) -> Result<Self> {
+    pub fn new(
+        cells: Vec<Cell>,
+        height: usize,
+        width: usize,
+        rules: Option<GameRules>,
+    ) -> Result<Self> {
         if height < 1 {
             return Err(CellsError::AutomatonInit(
                 errors::AutomatonInitError::Height { height },
@@ -73,6 +77,8 @@ impl Automaton {
             ));
         }
 
+        let rules = rules.unwrap_or(RulePresets::new().game_of_life());
+
         Ok(Automaton {
             cells,
             height,
@@ -82,7 +88,7 @@ impl Automaton {
         })
     }
 
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Automaton> {
+    pub fn from_file<P: AsRef<Path>>(path: P, rules: Option<GameRules>) -> Result<Automaton> {
         if !path
             .as_ref()
             .try_exists()
@@ -106,9 +112,7 @@ impl Automaton {
 
         // TODO: parse header - will it contain only rules but also expected width and height?
         // TODO: Make header optional? Good idea.
-        // let rules = todo!("read from header lines");
-        // Hardcoded rules for now
-        let rules = RulePresets::new().game_of_life();
+        let rules = rules.unwrap_or(RulePresets::new().game_of_life());
 
         // Manual handling of the first cells' data line
         if let Some(first_line) = lines
@@ -146,7 +150,7 @@ impl Automaton {
                 height,
                 width,
                 rules,
-                generation: 0,
+                generation: 1,
             })
         } else {
             Err(CellsError::automaton_init_io(io::Error::new(
@@ -156,7 +160,7 @@ impl Automaton {
         }
     }
 
-    // TODO: provide current position for debug?
+    // TODO: provide current parser position for debug?
     fn process_char(cells: &mut Vec<Cell>, ch: char) -> Result<()> {
         match ch {
             '0' => {
@@ -233,40 +237,40 @@ impl Automaton {
         self.generation += 1;
     }
 
-    // TODO: write tests
+    /// Returns indices of the cell's neighbors
     fn get_neighbors(&self, cell_idx: usize) -> Vec<usize> {
-        let row = cell_idx / self.height;
+        let row = cell_idx / self.width;
         let col = cell_idx % self.width;
 
         let mut neighbors_indices: Vec<usize> = Vec::new();
-        // TODO: Refactor into match with whole vectors of result ???
-        if col != 0 {
-            // Left neighbors
-            neighbors_indices.push(cell_idx - 1);
-            if row != 0 {
+
+        // Upper
+        if row != 0 {
+            if col != 0 {
                 neighbors_indices.push(cell_idx - self.width - 1);
             }
-            if row != self.height - 1 {
-                neighbors_indices.push(cell_idx + self.width - 1);
-            }
-        }
-        if col != self.width - 1 {
-            // Right neighbors
-            neighbors_indices.push(cell_idx + 1);
-            if row != 0 {
+            neighbors_indices.push(cell_idx - self.width);
+            if col != self.width - 1 {
                 neighbors_indices.push(cell_idx - self.width + 1);
             }
-            if row != self.height - 1 {
+        }
+        // Left
+        if col != 0 {
+            neighbors_indices.push(cell_idx - 1);
+        }
+        // Right
+        if col != self.width - 1 {
+            neighbors_indices.push(cell_idx + 1);
+        }
+        // Bottom
+        if row != self.height - 1 {
+            if col != 0 {
+                neighbors_indices.push(cell_idx + self.width - 1);
+            }
+            neighbors_indices.push(cell_idx + self.width);
+            if col != self.width - 1 {
                 neighbors_indices.push(cell_idx + self.width + 1);
             }
-        }
-        // Upper neighbor
-        if row != 0 {
-            neighbors_indices.push(cell_idx - self.width);
-        }
-        // Bottom neighbor
-        if row != self.height - 1 {
-            neighbors_indices.push(cell_idx + self.width);
         }
 
         neighbors_indices
@@ -277,11 +281,16 @@ impl Automaton {
 mod tests {
     use super::*;
 
+    use assert_fs::fixture::FileWriteStr;
+    use std::result::Result as StdResult;
+
+    // Automaton constructors' tests
+    // TODO:  Add error test cases for all constructors. Or at least for from_file
     #[test]
     fn create_empty_automaton() {
         let mut presets = RulePresets::default();
         let automaton =
-            Automaton::empty(4, 3, presets.game_of_life()).expect("Failed to init Automaton");
+            Automaton::empty(4, 3, Some(presets.game_of_life())).expect("Failed to init Automaton");
 
         let expected = Automaton {
             cells: vec![Cell::Dead; 12],
@@ -292,5 +301,237 @@ mod tests {
         };
 
         assert_eq!(automaton, expected);
+    }
+
+    #[test]
+    fn create_new_automaton() {
+        let mut presets = RulePresets::default();
+
+        // [Blinker](https://conwaylife.com/wiki/Blinker) pattern
+        let cells = vec![
+            // Row 1
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 2
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 3
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 4
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 5
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+        ];
+
+        let automaton =
+            Automaton::new(cells.clone(), 5, 6, None).expect("Failed to init Automaton");
+
+        let expected = Automaton {
+            cells,
+            height: 5,
+            width: 6,
+            rules: presets.game_of_life(),
+            generation: 1,
+        };
+
+        assert_eq!(automaton, expected);
+    }
+
+    #[test]
+    fn from_file_automaton() -> StdResult<(), Box<dyn std::error::Error>> {
+        let file = assert_fs::NamedTempFile::new("example.cells")?;
+        // [Blinker](https://conwaylife.com/wiki/Blinker) pattern
+        file.write_str(
+            "00000
+00100
+00100
+00100
+00000",
+        )?;
+
+        let mut presets = RulePresets::default();
+
+        let cells = vec![
+            // Row 1
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 2
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 3
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 4
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 5
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+        ];
+
+        let automaton =
+            Automaton::from_file(file.path(), None).expect("Failed to load Automaton from file");
+
+        let expected = Automaton {
+            cells,
+            height: 5,
+            width: 5,
+            rules: presets.game_of_life(),
+            generation: 1,
+        };
+
+        assert_eq!(automaton, expected);
+
+        Ok(())
+    }
+
+    // TODO: tests for to_next_state function
+    #[test]
+    fn test_next_state() {
+        let mut presets = RulePresets::default();
+
+        // [Blinker](https://conwaylife.com/wiki/Blinker) pattern
+        let initial_cells = vec![
+            // Row 1
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 2
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 3
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 4
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 5
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+        ];
+
+        let next_state_cells = vec![
+            // Row 1
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 2
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 3
+            Cell::Dead,
+            Cell::Alive,
+            Cell::Alive,
+            Cell::Alive,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 4
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            // Row 5
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+            Cell::Dead,
+        ];
+
+        let mut automaton =
+            Automaton::new(initial_cells, 5, 6, None).expect("Failed to init Automaton");
+        automaton.to_next_state();
+
+        let expected = Automaton {
+            cells: next_state_cells,
+            height: 5,
+            width: 6,
+            rules: presets.game_of_life(),
+            generation: 2,
+        };
+
+        assert_eq!(automaton, expected);
+    }
+
+    #[test]
+    fn get_neighbors() {
+        let automaton = Automaton::empty(3, 3, None).expect("Failed to init automaton");
+
+        assert_eq!(automaton.get_neighbors(0), vec![1, 3, 4]);
+        assert_eq!(automaton.get_neighbors(1), vec![0, 2, 3, 4, 5]);
+        assert_eq!(automaton.get_neighbors(2), vec![1, 4, 5]);
+        assert_eq!(automaton.get_neighbors(3), vec![0, 1, 4, 6, 7]);
+        assert_eq!(automaton.get_neighbors(4), vec![0, 1, 2, 3, 5, 6, 7, 8]);
+        assert_eq!(automaton.get_neighbors(5), vec![1, 2, 4, 7, 8]);
+        assert_eq!(automaton.get_neighbors(6), vec![3, 4, 7]);
+        assert_eq!(automaton.get_neighbors(7), vec![3, 4, 5, 6, 8]);
+        assert_eq!(automaton.get_neighbors(8), vec![4, 5, 7]);
     }
 }
